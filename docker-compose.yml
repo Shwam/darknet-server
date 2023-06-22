@@ -9,4 +9,5 @@ services:
       - ./code:/code
       - ./images:/images
       - ./output:/output
+      - ./models:/models
     shm_size: 8gb

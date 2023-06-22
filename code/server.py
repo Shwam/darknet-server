@@ -41,7 +41,7 @@ def load_image(img_size, stride, device, img0):
 
 
 
-def server(weights="yolov7/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thresh=0.45, classes=None):
+def server(weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thresh=0.45, classes=None):
     # Initialize
     set_logging()
     device = select_device("")
