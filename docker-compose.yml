@@ -1,0 +1,12 @@
+services:
+  pytorch_darknet:
+    runtime: nvidia
+    build: .
+    container_name: ptdn
+    ports:
+      - 7061:7061
+    volumes:
+      - ./code:/code
+      - ./images:/images
+      - ./output:/output
+    shm_size: 8gb
