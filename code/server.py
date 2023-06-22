@@ -2,12 +2,21 @@ from datetime import datetime
 import os
 import time
 import sys
+import socket
+import threading, multiprocessing
+from queue import Empty
+from struct import unpack
+from io import BytesIO
 
+from PIL import Image
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 import numpy as np
+
+from util import save_xml
+RECV_SIZE=4096
 
 sys.path.insert(0, "./yolov7")
 from yolov7.models.experimental import attempt_load
@@ -16,13 +25,85 @@ from yolov7.utils.general import check_img_size, check_requirements, check_imsho
 from yolov7.utils.plots import plot_one_box
 from yolov7.utils.torch_utils import select_device, load_classifier, time_synchronized
 
-def recv_image():
-    # Receive an image over the network
-    received = datetime.now().strftime("%Y%m%d-%H%M%S.jpg")
-    img0 = cv2.imread("/images/test.jpg")  # BGR
-    return img0, received
+class DarknetServer(socket.socket):
+    clients = dict()
 
-def load_image(img_size, stride, device, img0):
+    def __init__(self, image_queue, address="0.0.0.0", port=7061):
+        self.image_queue = image_queue
+        socket.socket.__init__(self)
+        self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.bind((address, port))
+        self.address = address
+        self.port = port
+        self.listen(5)
+
+    def run(self):
+        print("Started server")
+        try:
+            self.accept_clients()
+        except Exception as err:
+            print(err)
+        finally:
+            print("Closing server")
+            for client in self.clients:
+                client.close()
+            self.close()
+
+    def accept_clients(self):
+        while True:
+            conn, address = self.accept()
+            self.clients[conn] = (address, None)
+            # Client Connected
+            self.onopen(conn, address)
+            # Begin communicating with the client
+            threading.Thread(target=self.receive, args=(conn,)).start()
+
+    def receive(self, client):
+        # Continuously communicate with client
+        try:
+            while True:
+                byte_s = client.recv(8) # First byte = file size
+                (length,) = unpack('>Q', byte_s)
+                if length == 0: # Termination command
+                    break
+                received = datetime.now().strftime("%Y%m%d-%H%M%S.jpg")
+                data = b""
+
+                while len(data) < length:
+                        to_read = length - len(data)
+                        data += client.recv(RECV_SIZE if to_read > RECV_SIZE else to_read)
+                
+                # add to image queue
+                self.image_queue.put((client, data, received))
+                
+        except Exception as err:
+            print("Error while communicating with client", err)
+        # close thread
+        del self.clients[client]
+        self.onclose(client)
+        client.close()
+        sys.exit()
+
+    def broadcast(self, message):
+        for client in self.clients:
+            client.send(message)
+
+    def onopen(self, client, addr):
+        print(f"Client connected from {addr}")
+ 
+    def onclose(self, client):
+        print("Client Disconnected")
+
+def recv_image(input_queue):
+    # Receive an image over the network
+    command = input_queue.get(block=True, timeout=None)
+    #img0 = cv2.imread("/images/test.jpg")  # BGR
+    return command # client, image, received
+
+def load_image(img_size, stride, device, memory_image):
+    # Load from bytes
+    img0 = np.asarray(Image.open(BytesIO(memory_image)))
+    
     # Padded resize
     img = letterbox(img0, img_size, stride)[0]
 
@@ -42,7 +123,8 @@ def load_image(img_size, stride, device, img0):
 
 
 
-def server(weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thresh=0.45, classes=None):
+def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thresh=0.45, classes=None):
+    
     # Check if weights exist
     if not (os.path.exists(weights)):
         default_weights = "/models/yolov7.pt"
@@ -75,17 +157,16 @@ def server(weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thr
         model(torch.zeros(1, 3, img_size, img_size).to(device).type_as(next(model.parameters())))  # run once
 
     while True:
-        image, received = recv_image()
-        time.sleep(0.5) # We don't need 20 images per second...
-        start = time.time()
+        client, image, received = recv_image(input_queue)
         
         # Load image from memory
         img, im0s = load_image(img_size, stride, device, image)
     
+        start = time.time()
         detections = detect(model, img, im0s, conf_thresh, iou_thresh, classes, names)
         
-        #output_queue.put(detections)
         print(f"Processed image in {time.time() - start} seconds")
+        client.send(str(detections).encode("utf8"))#output_queue.put(detections)
 
         print(detections)
         # save image and xml
@@ -119,46 +200,15 @@ def detect(model, img, im0s, conf_thresh, iou_thresh, classes, names):
 
     return detections
 
-def save_xml(boxes, filename):
-    width = 2560
-    height = 1440
-    path = f"/output/{filename}"
-    object_template = lambda label, rect: f"""<object>
-        <name>{label}</name>
-        <pose>Unspecified</pose>
-        <truncated>0</truncated>
-        <difficult>0</difficult>
-        <bndbox>
-            <xmin>{int((rect[0]-rect[2]/2)*width)}</xmin>
-            <ymin>{int((rect[1]-rect[3]/2)*height)}</ymin>
-            <xmax>{int((rect[0]+rect[2]/2)*width)}</xmax>
-            <ymax>{int((rect[1]+rect[3]/2)*height)}</ymax>
-        </bndbox>
-    </object>"""
-    objects = ""
-    for box in boxes:
-        label, confidence, rect = box    
-        objects += object_template(label, rect) + "\n"
-                
-    output = f"""<annotation>
-        <folder>images</folder>
-        <filename>{filename}</filename>
-        <path>{path}</path>
-        <source>
-            <database>Unknown</database>
-        </source>
-        <size>
-            <width>{width}</width>
-            <height>{height}</height>
-            <depth>3</depth>
-        </size>
-        <segmented>0</segmented>
-        {objects}
-    </annotation>"""
-
-    with open(path.replace(".jpg", ".xml"), "w") as f:
-        f.write(output)
-
 if __name__ == '__main__':
     with torch.no_grad():
-        server()
+        input_queue = multiprocessing.Queue()
+        output_queue = multiprocessing.Queue()
+
+        # start detection worker thread
+        threading.Thread(target=detector_thread, args=[input_queue, output_queue]).start()
+
+        # start server
+        server = DarknetServer(input_queue)
+        server.run()
+        

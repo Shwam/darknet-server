@@ -3,6 +3,5 @@ RUN apt update
 RUN apt install -y zip htop screen libgl1-mesa-glx
 RUN pip install seaborn thop
 WORKDIR /code
+ENV PYTHONUNBUFFERED=1
 CMD ["python", "server.py"]
-#WORKDIR yolov7
-#CMD ["python", "detect.py", "--source", "/images/test.jpg"]
