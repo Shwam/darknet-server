@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import time
 import sys
 
@@ -42,6 +43,9 @@ def load_image(img_size, stride, device, img0):
 
 
 def server(weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thresh=0.45, classes=None):
+    # Check if weights exist
+    if not (os.path.exists(weights)):
+        os.system("cd /models/ && wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt")
     # Initialize
     set_logging()
     device = select_device("")
