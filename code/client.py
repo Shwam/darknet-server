@@ -1,7 +1,9 @@
+import ast
 from socket import *
 from struct import pack
 import multiprocessing, threading
 from queue import Empty
+
 RECV_SIZE=4096
 
 class DarknetClient:
@@ -29,7 +31,7 @@ class DarknetClient:
                     self.send_image(image)
                 data = self.socket.recv(RECV_SIZE)
                 if data:
-                    self.result_queue.put(data.decode("utf8"))
+                    self.result_queue.put(ast.literal_eval(data.decode("utf8")))
             except Empty:
                 pass
         
@@ -45,7 +47,6 @@ class DarknetClient:
         length = pack('>Q', len(image_data))
         self.socket.sendall(length)
         self.socket.sendall(image_data)
-
 if __name__ == '__main__':
     """ Sample client which performs detection on a single image and then disconnects """
     # Start the client thread
@@ -55,7 +56,7 @@ if __name__ == '__main__':
     threading.Thread(target=DarknetClient.run, args=(client,)).start()
 
     # Queue an image to be processed
-    with open('images/test.jpg', 'rb') as f:
+    with open('test.jpg', 'rb') as f:
         image_data = f.read()    
         image_queue.put(image_data)
 

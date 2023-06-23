@@ -1,7 +1,7 @@
-def save_xml(boxes, filename):
+def save_xml(boxes, path):
+    filename = path.split("/")[-1]
     width = 2560
     height = 1440
-    path = f"/output/{filename}"
     object_template = lambda label, rect: f"""<object>
         <name>{label}</name>
         <pose>Unspecified</pose>

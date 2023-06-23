@@ -66,7 +66,7 @@ class DarknetServer(socket.socket):
                 (length,) = unpack('>Q', byte_s)
                 if length == 0: # Termination command
                     break
-                received = datetime.now().strftime("%Y%m%d-%H%M%S.jpg")
+                received = datetime.now().strftime("%y%m%d%H%M%S")
                 data = b""
 
                 while len(data) < length:
@@ -97,7 +97,6 @@ class DarknetServer(socket.socket):
 def recv_image(input_queue):
     # Receive an image over the network
     command = input_queue.get(block=True, timeout=None)
-    #img0 = cv2.imread("/images/test.jpg")  # BGR
     return command # client, image, received
 
 def load_image(img_size, stride, device, memory_image):
@@ -123,7 +122,7 @@ def load_image(img_size, stride, device, memory_image):
 
 
 
-def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.25, iou_thresh=0.45, classes=None):
+def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.65, iou_thresh=0.75, classes=None):
     
     # Check if weights exist
     if not (os.path.exists(weights)):
@@ -164,15 +163,10 @@ def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_
     
         start = time.time()
         detections = detect(model, img, im0s, conf_thresh, iou_thresh, classes, names)
-        
-        print(f"Processed image in {time.time() - start} seconds")
-        client.send(str(detections).encode("utf8"))#output_queue.put(detections)
-
-        print(detections)
-        # save image and xml
-        cv2.imwrite("/output/" + received, (im0s).astype('uint8')) 
-        save_xml(detections, received)
-    
+        time.sleep(0.5) # slow it down a bit    
+        #print(f"Processed image in {time.time() - start} seconds")
+        print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S')}")
+        client.send(str((received, detections)).encode("utf8")) 
     
 
 def detect(model, img, im0s, conf_thresh, iou_thresh, classes, names):
@@ -184,7 +178,6 @@ def detect(model, img, im0s, conf_thresh, iou_thresh, classes, names):
     pred = non_max_suppression(pred, conf_thresh, iou_thresh, classes=classes, agnostic=False)
 
     detections = [] # (class, x, y, w, h, confidence)
-
     # Process detections
     for i, det in enumerate(pred):  # detections per image
 
