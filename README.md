@@ -17,7 +17,7 @@ Then connect your client (sample client provided):
 ## Server-Client Protocol
 1. Server receives 8 bytes, representing file size N in big-endian
 2. Server receives N additional bytes from the client, containing raw bytes of image (image file contents in 'rb' mode)
-3. Server performs detection and sends back the list of detections with bounding boxes, formatted as [(label, confidence, (x, y, width, height)),,...]
+3. Server performs detection and sends back the list of detections with bounding boxes, formatted as [timestamp, (label, confidence, (x, y, width, height)),,...]
 4. Repeat 1-3 as many times as desired over one connection until a size of 0 bytes is sent, at which point the connection will terminate.
 
 The server can conect to multiple clients at once and will process images in the order received.
