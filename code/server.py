@@ -15,7 +15,6 @@ import torch.backends.cudnn as cudnn
 from numpy import random
 import numpy as np
 
-from util import save_xml
 RECV_SIZE=4096
 
 sys.path.insert(0, "./yolov7")
@@ -122,7 +121,7 @@ def load_image(img_size, stride, device, memory_image):
 
 
 
-def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.65, iou_thresh=0.75, classes=None):
+def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_size=640,  conf_thresh=0.85, iou_thresh=0.85, classes=None):
     
     # Check if weights exist
     if not (os.path.exists(weights)):

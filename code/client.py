@@ -21,20 +21,17 @@ class DarknetClient:
     def run(self):
         data = b""
         while True:
-            try:
-                image = self.image_queue.get(block=False)
-                if image == None: # quit command
-                    self.close()
-                    break
-                if image:
-                    # send it to the server
-                    self.send_image(image)
-                data = self.socket.recv(RECV_SIZE)
-                if data:
-                    self.result_queue.put(ast.literal_eval(data.decode("utf8")))
-            except Empty:
-                pass
-        
+            image = self.image_queue.get(block=True)
+            if image == None: # quit command
+                self.close()
+                return 0
+            if image:
+                # send it to the server
+                self.send_image(image)
+            data = self.socket.recv(RECV_SIZE)
+            if data:
+                self.result_queue.put(ast.literal_eval(data.decode("utf8")))
+    
     def close(self):
         # send the quit command
         self.socket.sendall(pack('>q', 0))
