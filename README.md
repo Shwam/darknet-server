@@ -20,4 +20,4 @@ Then connect your client (sample client provided):
 3. Server performs detection and sends back the list of detections with bounding boxes, formatted as [timestamp, (label, confidence, (x, y, width, height)),,...]
 4. Repeat 1-3 as many times as desired over one connection until a size of 0 bytes is sent, at which point the connection will terminate.
 
-The server can conect to multiple clients at once and will process images in the order received.
+The server can connect to multiple clients at once and will process images in the order received.
