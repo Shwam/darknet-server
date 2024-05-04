@@ -164,7 +164,7 @@ def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_
         detections = detect(model, img, im0s, conf_thresh, iou_thresh, classes, names)
         time.sleep(0.5) # slow it down a bit    
         #print(f"Processed image in {time.time() - start} seconds")
-        print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S')}")
+        #print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S')}")
         client.send(str((received, detections)).encode("utf8")) 
     
 

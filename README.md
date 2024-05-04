@@ -4,7 +4,7 @@ A yolov7 (pytorch-darknet) object detection socket server
 ## Requirements
 - `docker`
 - `docker-compose`
-- `nvidia-docker`, if you want to take advantage of the gpu
+- `nvidia-container-toolkit`, if you want to take advantage of the gpu
 - `python3`, if you want to use the sample client -- else you can write your own client in whatever language
 
 ## Running
