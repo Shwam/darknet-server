@@ -3,6 +3,7 @@ from socket import *
 from struct import pack
 import multiprocessing, threading
 from queue import Empty
+import time
 
 RECV_SIZE=4096
 
@@ -10,13 +11,25 @@ class DarknetClient:
 
     def __init__(self, server_ip, server_port, image_queue, result_queue):
         self.socket = None
-        self.connect(server_ip, server_port)
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.connect()
         self.image_queue = image_queue
         self.result_queue = result_queue
 
-    def connect(self, server_ip, server_port):
-        self.socket = socket(AF_INET, SOCK_STREAM)
-        self.socket.connect((server_ip, server_port))
+    def connect(self):
+        retries = 0
+        while True:
+            try:
+                self.socket = socket(AF_INET, SOCK_STREAM)
+                self.socket.connect((self.server_ip, self.server_port))
+                print(f"Connected to image server at {self.server_ip}:{self.server_port}")
+                return True
+            except Exception as err:
+                if retries == 0:
+                    print(f"Could not connect to {self.server_ip}:{self.server_port} - {err}, retrying")
+                time.sleep(5)
+                retries += 1
     
     def run(self):
         data = b""
@@ -27,10 +40,30 @@ class DarknetClient:
                 return 0
             if image:
                 # send it to the server
-                self.send_image(image)
-            data = self.socket.recv(RECV_SIZE)
+                try:
+                    self.send_image(image)
+                except Exception as err:
+                    print(f"Error communicating with image server {err}. Retrying connection")
+                    self.connect()
+                    self.image_queue.put(image)
+                    continue
+            data = b""
+            while not data:
+                try:
+                    data = self.socket.recv(RECV_SIZE)
+                    if not data:
+                        print(f"Error communicating with image server {err}. Retrying connection")
+                        self.connect()
+                        break
+                except Exception as err:
+                    print(f"Error communicating with image server {err}. Retrying connection")
+                    self.connect()
+                    break
             if data:
                 self.result_queue.put(ast.literal_eval(data.decode("utf8")))
+            else:
+                # Try it again
+                self.image_queue.put(image)
     
     def close(self):
         # send the quit command
@@ -44,6 +77,7 @@ class DarknetClient:
         length = pack('>Q', len(image_data))
         self.socket.sendall(length)
         self.socket.sendall(image_data)
+
 if __name__ == '__main__':
     """ Sample client which performs detection on a single image and then disconnects """
     # Start the client thread
