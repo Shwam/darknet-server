@@ -67,7 +67,6 @@ class DarknetServer(socket.socket):
                     break
                 received = datetime.now().strftime("%y%m%d%H%M%S")
                 data = b""
-
                 while len(data) < length:
                         to_read = length - len(data)
                         data += client.recv(RECV_SIZE if to_read > RECV_SIZE else to_read)
@@ -155,17 +154,17 @@ def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_
         model(torch.zeros(1, 3, img_size, img_size).to(device).type_as(next(model.parameters())))  # run once
 
     while True:
-        client, image, received = recv_image(input_queue)
-        
-        # Load image from memory
-        img, im0s = load_image(img_size, stride, device, image)
-    
-        start = time.time()
-        detections = detect(model, img, im0s, conf_thresh, iou_thresh, classes, names)
-        time.sleep(0.5) # slow it down a bit    
-        #print(f"Processed image in {time.time() - start} seconds")
-        #print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S')}")
-        client.send(str((received, detections)).encode("utf8")) 
+        try:
+            client, image, received = recv_image(input_queue)
+            # Load image from memory
+            img, im0s = load_image(img_size, stride, device, image)
+            start = time.time()
+            detections = detect(model, img, im0s, conf_thresh, iou_thresh, classes, names)
+            #print(f"Processed image in {time.time() - start} seconds")
+            #print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S')}")
+            client.send(str((received, detections)).encode("utf8"))
+        except Exception as err:
+            print(f"Failed to process image from client {client.getpeername()}: {err}") 
     
 
 def detect(model, img, im0s, conf_thresh, iou_thresh, classes, names):

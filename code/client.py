@@ -13,7 +13,6 @@ class DarknetClient:
         self.socket = None
         self.server_ip = server_ip
         self.server_port = server_port
-        self.connect()
         self.image_queue = image_queue
         self.result_queue = result_queue
 
@@ -32,38 +31,39 @@ class DarknetClient:
                 retries += 1
     
     def run(self):
+        self.connect()
         data = b""
         while True:
             image = self.image_queue.get(block=True)
-            if image == None: # quit command
+            if image is None: # quit command
                 self.close()
                 return 0
-            if image:
-                # send it to the server
-                try:
-                    self.send_image(image)
-                except Exception as err:
-                    print(f"Error communicating with image server {err}. Retrying connection")
-                    self.connect()
-                    self.image_queue.put(image)
-                    continue
+            # send it to the server
+            try:
+                self.send_image(image)
+            except Exception as err:
+                print(f"Error communicating with image server {err}. Retrying connection")
+                self.connect()
+                self.image_queue.put(image)
+                continue
             data = b""
             while not data:
                 try:
                     data = self.socket.recv(RECV_SIZE)
                     if not data:
-                        print(f"Error communicating with image server {err}. Retrying connection")
+                        print(f"Error communicating with image server (Empty data). Retrying connection")
                         self.connect()
                         break
                 except Exception as err:
                     print(f"Error communicating with image server {err}. Retrying connection")
                     self.connect()
                     break
-            if data:
-                self.result_queue.put(ast.literal_eval(data.decode("utf8")))
-            else:
-                # Try it again
-                self.image_queue.put(image)
+                if data:
+                    self.result_queue.put(ast.literal_eval(data.decode("utf8")))
+                else:
+                    print("No data returned from server")
+                    # Try it again
+                    self.image_queue.put(image)
     
     def close(self):
         # send the quit command
