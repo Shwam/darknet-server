@@ -65,7 +65,7 @@ class DarknetServer(socket.socket):
                 (length,) = unpack('>Q', byte_s)
                 if length == 0: # Termination command
                     break
-                received = datetime.now().strftime("%y%m%d%H%M%S")
+                received = datetime.now().strftime("%y%m%d%H%M%S%f")
                 data = b""
                 while len(data) < length:
                         to_read = length - len(data)
@@ -161,7 +161,7 @@ def detector_thread(input_queue, output_queue, weights="/models/yolov7.pt", img_
             start = time.time()
             detections = detect(model, img, im0s, conf_thresh, iou_thresh, classes, names)
             #print(f"Processed image in {time.time() - start} seconds")
-            #print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S')}")
+            #print(f"Last activity: {datetime.now().strftime('%y%m%d%H%M%S%f')}")
             client.send(str((received, detections)).encode("utf8"))
         except Exception as err:
             print(f"Failed to process image from client {client.getpeername()}: {err}") 
